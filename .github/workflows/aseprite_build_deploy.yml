@@ -95,8 +95,9 @@ jobs:
           mkdir -p aseprite/build
       - name: Locate Visual Studio
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          vs_path=$(vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+          $vs_path = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           echo "##[set-env name=VS_PATH]$vs_path"
       - name: (Windows) Set architecture for the produced binary
         if: matrix.os == 'windows-latest'
