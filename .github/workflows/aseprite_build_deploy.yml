@@ -7,16 +7,11 @@ on:
     branches:
       - master
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Type of build to trigger (e.g., Release, Debug)'
-        required: false
-        default: 'RelWithDebInfo'
 
 env:
-  BUILD_TYPE: ${{ github.event.inputs.build_type || 'RelWithDebInfo' }}
-  SKIA_VERSION: aseprite-m102
-
+  BUILD_TYPE: Release
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+  
 jobs:
   check-version:
     name: Check latest Aseprite release
@@ -62,88 +57,84 @@ jobs:
           ${{ steps.version_info.outputs.version_info }}
         draft: true
         prerelease: false
-
+  
   build-aseprite:
     name: Build Aseprite
     needs: check-version
     if: ${{ needs.check-version.outputs.should_build }}
+    runs-on: ${{ matrix.os }}
     strategy:
        matrix:
-         os: [windows-latest, ubuntu-latest, macOS-latest]
+         os: [windows-latest]
        fail-fast: false    
     steps:
-      # Windows setup
       - name: (Windows) Install dependencies
         if: matrix.os == 'windows-latest'
-        uses: seanmiddleditch/gha-setup-ninja@v1
-
-      - name: (Windows) Download and Install Skia
-        if: matrix.os == 'windows-latest'
         run: |
-          curl -LO https://github.com/aseprite/skia/releases/download/${{ env.SKIA_VERSION }}/Skia-Windows-Release-x64.zip
-          7z x Skia-Windows-Release-x64.zip -oC:\deps\skia
-        shell: cmd
-
-      - name: (Windows) Setup Visual Studio Environment
+          choco install visualstudio2019community --package-parameters "--allWorkloads --includeRecommended --includeOptional --passive --locale en-US"
+          choco install windows-sdk-10.0
+      - name: (Ubuntu) Install dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt install -y clang-10 libc++-10-dev libc++abi-10-dev cmake ninja-build libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
+      - name: (macOS) Install dependencies
+        if: matrix.os == 'macOS-latest'
+        run: brew install cmake ninja
+      - name: Get Skia from cache
+        id: skia-cache
+        uses: actions/cache@v2
+        with:
+          path: skia
+          key: skia-${{ matrix.os }}-cache
+      - name: Download Skia if not in cache
+        if: steps.skia-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -o Skia-${{ runner.os }}-Release-X64.zip -L https://github.com/aseprite/skia/releases/download/m81-b607b32047/Skia-${{ runner.os }}-Release-X64.zip
+          unzip Skia-${{ runner.os }}-Release-X64.zip -d skia
+      - name: Download Aseprite release
+        run: |
+          curl -o Aseprite-source.zip -L ${{ needs.check-version.outputs.download_url }}
+          unzip Aseprite-source.zip -d aseprite
+          mkdir -p aseprite/build
+      - name: Locate Visual Studio
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $vs_path = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          echo "##[set-env name=VS_PATH]$vs_path"
+      - name: (Windows) Set architecture for the produced binary
         if: matrix.os == 'windows-latest'
         shell: cmd
-        run: call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" -arch=x64
-
+        run: |
+          call "${{ env.VS_PATH }}\Common7\Tools\VsDevCmd.bat" -arch=x64
+      - name: (Windows) Setting Visual Studio build environment variables and paths
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-vsdevenv@v1
       - name: (Windows) Run CMake
         if: matrix.os == 'windows-latest'
         working-directory: aseprite/build
         shell: cmd
-        run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DLAF_BACKEND=skia -DSKIA_DIR=C:/deps/skia -DSKIA_LIBRARY_DIR=C:/deps/skia/out/Release-x64 -G Ninja ..
-
-      - name: (Windows) Run Ninja
-        if: matrix.os == 'windows-latest'
-        working-directory: aseprite/build
-        shell: cmd
-        run: ninja aseprite
-
-      # macOS setup
-      - name: (macOS) Install dependencies
-        if: matrix.os == 'macOS-latest'
-        run: brew install ninja p7zip
-
-      - name: (macOS) Download and Install Skia
-        if: matrix.os == 'macOS-latest'
-        run: |
-          curl -LO https://github.com/aseprite/skia/releases/download/${{ env.SKIA_VERSION }}/Skia-macOS-Release-x64.zip
-          7z x Skia-macOS-Release-x64.zip -o$HOME/deps/skia
-
-      - name: (macOS) Run CMake
-        if: matrix.os == 'macOS-latest'
-        working-directory: aseprite/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 -DCMAKE_OSX_SYSROOT=$(xcode-select --print-path)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -DLAF_BACKEND=skia -DSKIA_DIR=$HOME/deps/skia -DSKIA_LIBRARY_DIR=$HOME/deps/skia/out/Release-x64 -G Ninja ..
-
-      - name: (macOS) Run Ninja
-        if: matrix.os == 'macOS-latest'
-        working-directory: aseprite/build
-        run: ninja aseprite
-
-      # Ubuntu/Linux setup
-      - name: (Ubuntu) Install dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y g++ clang libc++-dev libc++abi-dev cmake ninja-build libx11-dev libxcursor-dev libxi-dev libgl1-mesa-dev libfontconfig1-dev
-
-      - name: (Ubuntu) Download and Install Skia
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          curl -LO https://github.com/aseprite/skia/releases/download/${{ env.SKIA_VERSION }}/Skia-Linux-Release-x64.zip
-          7z x Skia-Linux-Release-x64.zip -o$HOME/deps/skia
-
+        run: cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLAF_BACKEND=skia -DSKIA_DIR=C:\\deps\\skia -DSKIA_LIBRARY_DIR=C:\\deps\\skia\\out\\Release-x64 -DSKIA_LIBRARY=C:\\deps\\skia\\out\\Release-x64\\skia.lib -G Ninja ..
       - name: (Ubuntu) Run CMake
         if: matrix.os == 'ubuntu-latest'
         working-directory: aseprite/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_CXX_FLAGS:STRING=-stdlib=libc++ -DCMAKE_EXE_LINKER_FLAGS:STRING=-stdlib=libc++ -DLAF_BACKEND=skia -DSKIA_DIR=$HOME/deps/skia -DSKIA_LIBRARY_DIR=$HOME/deps/skia/out/Release-x64 -G Ninja ..
-
-      - name: (Ubuntu) Run Ninja
-        if: matrix.os == 'ubuntu-latest'
+        run: cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLAF_BACKEND=skia -DSKIA_DIR=$HOME/deps/skia -DSKIA_LIBRARY_DIR=$HOME/deps/skia/out/Release-x64 -DSKIA_LIBRARY=$HOME/deps/skia/out/Release-x64/libskia.a -G Ninja ..
+      - name: (macOS) Run CMake
+        if: matrix.os == 'macOS-latest'
+        working-directory: aseprite/build
+        run: cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -DLAF_BACKEND=skia -DSKIA_DIR=$HOME/deps/skia -DSKIA_LIBRARY_DIR=$HOME/deps/skia/out/Release-x64 -DSKIA_LIBRARY=$HOME/deps/skia/out/Release-x64/libskia.a -G Ninja ..
+      - name: Run Ninja
         working-directory: aseprite/build
         run: ninja aseprite
-
-      # Common post-build steps
+      - name: Clean up build
+        working-directory: aseprite/build/bin
+        shell: bash
+        run: rm -f gen modp_b64_gen gen.exe gen.exe.manifest modp_b64_gen.exe modp_b64_gen.exe.manifest
+      - name: (Windows) Make portable zip
+        working-directory: aseprite/build/bin
+        run: echo '# This file is here so Aseprite behaves as a portable program' > aseprite.ini
+      - name: Create release
+        working-directory: aseprite/build/bin
+        run: 7z -tzip a Aseprite-${{ needs.check-version.outputs.latest_tag }}-${{ runner.os }}.zip *
       - name: Upload release
         uses: actions/upload-release-asset@v1
         env:
