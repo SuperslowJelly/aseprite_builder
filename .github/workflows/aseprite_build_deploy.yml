@@ -62,7 +62,7 @@ jobs:
     name: Build Aseprite
     needs: check-version
     if: ${{ needs.check-version.outputs.should_build }}
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Setup MSBuild path
         uses: microsoft/setup-msbuild@v1.1
@@ -70,7 +70,7 @@ jobs:
           vs-version: '17.0'  # This corresponds to Visual Studio 2022
       - name: Set architecture for the produced binary
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat" -arch=x64
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64
         shell: cmd
       - name: Download Aseprite release
         run: |
