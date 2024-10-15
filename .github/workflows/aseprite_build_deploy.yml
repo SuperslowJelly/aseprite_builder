@@ -86,13 +86,7 @@ jobs:
       - name: Run CMake
         working-directory: aseprite/build
         run: |
-          cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DLAF_BACKEND=skia \
-            -DSKIA_DIR=$PWD/../../skia \
-            -DSKIA_LIBRARY_DIR=$PWD/../../skia/out/Release-x64 \
-            -DSKIA_LIBRARY=$PWD/../../skia/out/Release-x64/skia.lib \
-            -G Ninja \
-            -DCMAKE_MAKE_PROGRAM="C:/ProgramData/chocolatey/lib/ninja/tools/ninja.exe" ..
+          cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DLAF_BACKEND=skia -DSKIA_DIR=$PWD/../../skia -DSKIA_LIBRARY_DIR=$PWD/../../skia/out/Release-x64 -DSKIA_LIBRARY=$PWD/../../skia/out/Release-x64/skia.lib -G Ninja -DCMAKE_MAKE_PROGRAM="C:/ProgramData/chocolatey/lib/ninja/tools/ninja.exe" ..
       - name: Run Ninja
         working-directory: aseprite/build
         run: ninja aseprite
