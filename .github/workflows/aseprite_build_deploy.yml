@@ -85,9 +85,8 @@ jobs:
           unzip skia.zip -d skia
       - name: Patch city.cc to replace byteswap.h
         run: |
+          sed -i '1s/^/#define bswap_32(x) __builtin_bswap32(x)\n#define bswap_64(x) __builtin_bswap64(x)\n/' aseprite/third_party/cityhash/src/city.cc
           sed -i 's/#include <byteswap.h>/\/\/ #include <byteswap.h>/' aseprite/third_party/cityhash/src/city.cc
-          echo '#define bswap_32(x) __builtin_bswap32(x)' >> aseprite/third_party/cityhash/src/city.cc
-          echo '#define bswap_64(x) __builtin_bswap64(x)' >> aseprite/third_party/cityhash/src/city.cc
       - name: Run CMake
         working-directory: aseprite/build
         run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DLAF_BACKEND=skia -DSKIA_DIR=${{ github.workspace }}/skia -DSKIA_LIBRARY_DIR=${{ github.workspace }}/skia/out/Release-x64 -DSKIA_LIBRARY=${{ github.workspace }}/skia/out/Release-x64/skia.lib -G Ninja -DCMAKE_MAKE_PROGRAM="C:/ProgramData/chocolatey/lib/ninja/tools/ninja.exe" -DCMAKE_IGNORE_PATH=C:/mingw64/bin ..
