@@ -68,10 +68,6 @@ jobs:
         uses: microsoft/setup-msbuild@v1.1
         with:
           vs-version: '17.0'  # This corresponds to Visual Studio 2022
-      - name: Install Desktop development with C++ workload and MSVC v143 build tools
-        run: |
-          "C:\Program Files\Microsoft Visual Studio\Installer\vs_installer.exe" modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --quiet --wait --norestart
-        shell: cmd
       - name: Set architecture for the produced binary
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64
@@ -89,7 +85,7 @@ jobs:
           unzip skia.zip -d skia
       - name: Run CMake
         working-directory: aseprite/build
-        run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DLAF_BACKEND=skia -DSKIA_DIR=${{ github.workspace }}/skia -DSKIA_LIBRARY_DIR=${{ github.workspace }}/skia/out/Release-x64 -DSKIA_LIBRARY=${{ github.workspace }}/skia/out/Release-x64/skia.lib -G Ninja -DCMAKE_IGNORE_PATH=C:/mingw64/bin ..
+        run: cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DLAF_BACKEND=skia -DSKIA_DIR=${{ github.workspace }}/skia -DSKIA_LIBRARY_DIR=${{ github.workspace }}/skia/out/Release-x64 -DSKIA_LIBRARY=${{ github.workspace }}/skia/out/Release-x64/skia.lib -G Ninja -DCMAKE_MAKE_PROGRAM="C:/ProgramData/chocolatey/lib/ninja/tools/ninja.exe" -DCMAKE_IGNORE_PATH=C:/mingw64/bin ..
       - name: Run Ninja
         working-directory: aseprite/build
         run: ninja aseprite
