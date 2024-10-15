@@ -1,4 +1,4 @@
-name: Build and deploy Aseprite
+cccccccccccccccccccccccccccname: Build and deploy Aseprite
 
 on:
   schedule:
@@ -64,6 +64,9 @@ jobs:
     if: ${{ needs.check-version.outputs.should_build }}
     runs-on: windows-2022
     steps:
+      - name: Install Windows SDK
+        run: |
+          choco install windows-sdk-10.1 -y
       - name: Setup MSBuild path
         uses: microsoft/setup-msbuild@v1.1
         with:
